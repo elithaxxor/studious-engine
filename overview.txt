@@ -1,0 +1,171 @@
+Architecture for a Video Downloading Web Browser
+This document outlines a proposed solution for building a cross-platform web browser application that enables users to download videos by hovering over them on a webpage and pressing a keyboard shortcut (e.g., Ctrl+L). The application targets Windows and macOS, as specified by the Darwin operating system. Below, we detail the architecture, dataflow, recommended frameworks, programming languages, and considerations for implementation, guiding the engineering team through a structured approach.
+Solution Overview
+The goal is to create a standalone web browser application that renders web pages, detects video elements, and initiates downloads when a user hovers over a video and presses a predefined keyboard shortcut. The solution leverages Electron, a framework that combines Chromium for web rendering and Node.js for backend functionality, ensuring compatibility with both Windows and macOS. The architecture is divided into main and renderer processes, with preload scripts handling video detection and user input within web pages.
+Why Electron?
+Electron (https://www.electronjs.org/) is recommended because it:
+
+Supports cross-platform development for Windows and macOS.
+Uses familiar web technologies (JavaScript, HTML, CSS), reducing the learning curve.
+Provides access to Node.js for file system operations like downloading.
+Embeds Chromium, offering robust web rendering capabilities.
+
+Alternative frameworks, such as Qt WebEngine (https://doc.qt.io/qt-6/qtwebengine-index.html) with C++, were considered but deemed less suitable due to their complexity and steeper learning curve for this use case.
+Architecture Components
+The application is structured into three main components, each with distinct responsibilities:
+1. Main Process
+
+Role: Manages the application lifecycle, user interface windows, and file downloads.
+Responsibilities:
+Creates and manages the main BrowserWindow for the browser UI.
+Handles inter-process communication (IPC) messages from renderer processes.
+Displays save dialogs to let users choose download locations.
+Downloads videos using Node.js modules (https and fs).
+
+
+Key Questions:
+Should the main process handle additional browser features like bookmarks or history?
+How should download errors (e.g., invalid URLs) be communicated to users?
+
+
+
+2. Renderer Process
+
+Role: Renders the browser’s user interface, including tabs, address bar, and navigation controls.
+Responsibilities:
+Creates <webview> elements for each tab to display web pages.
+Manages tab creation, switching, and navigation.
+Loads preload scripts into <webview> elements to enable video detection and input handling.
+
+
+Key Questions:
+How many tabs should the app support to balance performance and usability?
+Would a frontend framework like React (https://reactjs.org/) simplify UI development, or is plain JavaScript sufficient?
+
+
+
+3. Preload Script (Per <webview>)
+
+Role: Runs in the context of each <webview> to interact with the web page’s DOM and handle user inputs.
+Responsibilities:
+Attaches mouseenter and mouseleave event listeners to <video> elements to track hover state.
+Uses a MutationObserver to detect dynamically added <video> elements.
+Listens for keydown events to identify the keyboard shortcut (e.g., Ctrl+L).
+Sends IPC messages to the main process with the video URL when the download is triggered.
+
+
+Key Questions:
+How should the script handle pages with multiple videos or complex video sources?
+Should visual feedback (e.g., highlighting) be added when hovering over a video?
+
+
+
+Dataflow Graph
+The dataflow describes how user actions translate into video downloads, with interactions between the preload script, renderer process, and main process.
+
+
+
+Step
+Component
+Action
+Details
+
+
+
+1
+Preload Script
+Detects hover
+On mouseenter for a <video> element, sets isHoveringVideo = true and stores currentVideoURL = video.src. On mouseleave, clears these values.
+
+
+2
+Preload Script
+Detects shortcut
+On keydown, checks if Ctrl+L is pressed and isHoveringVideo is true. If so, sends an IPC message (download_video) with currentVideoURL to the main process.
+
+
+3
+Main Process
+Initiates download
+Receives download_video message, shows a save dialog using Electron’s dialog module, and downloads the video to the selected path using Node.js https and fs modules.
+
+
+4
+Preload Script
+Handles dynamic content
+Uses a MutationObserver to detect new <video> elements and attach event listeners, ensuring compatibility with dynamic web pages.
+
+
+Example Dataflow Scenario
+
+User hovers over a video: The preload script detects the mouseenter event, sets the hover state, and stores the video’s URL.
+User presses Ctrl+L: The preload script confirms the hover state and sends the video URL to the main process via IPC.
+Main process responds: A save dialog appears, and upon user selection, the video is downloaded to the chosen location.
+User moves mouse away: The preload script clears the hover state, preventing unintended downloads.
+
+Recommended Frameworks and Languages
+
+
+
+Component
+Framework/Language
+Rationale
+
+
+
+Application Framework
+Electron
+Cross-platform, uses web technologies, embeds Chromium and Node.js.
+
+
+UI Development
+HTML, CSS, JavaScript
+Standard for web-based interfaces, compatible with Electron’s renderer process.
+
+
+Backend Logic
+Node.js (JavaScript)
+Handles file downloads and IPC, integrated with Electron.
+
+
+Optional UI Framework
+React (optional)
+Could simplify tab and state management, but plain JavaScript is sufficient for smaller projects.
+
+
+Why JavaScript?
+JavaScript is the primary language due to Electron’s reliance on web technologies. It supports both frontend (UI) and backend (downloads) tasks, streamlining development. If the team prefers C++, Qt WebEngine is an alternative, but it requires more expertise and may slow development.
+Implementation Details
+Video Detection
+
+Static Videos: The preload script attaches event listeners to all <video> elements on page load.
+Dynamic Videos: A MutationObserver monitors the DOM for new <video> elements, ensuring compatibility with single-page applications or dynamically loaded content.
+Challenges: Videos without a direct src (e.g., streaming or blob URLs) may require additional parsing or third-party libraries, which are beyond the initial scope but can be added later.
+
+Keyboard Shortcut Handling
+
+The shortcut (e.g., Ctrl+L) is detected in the preload script via a keydown event listener on the <webview>’s window.
+To avoid conflicts with web page shortcuts, the script checks the hover state before acting, ensuring the download only triggers when intended.
+Question: Should the shortcut be customizable, or is a fixed shortcut like Ctrl+L sufficient?
+
+Downloading Videos
+
+Process:
+The preload script sends the video URL to the main process.
+The main process uses Electron’s dialog module (https://www.electronjs.org/docs/latest/api/dialog) to show a save dialog.
+Node.js https and fs modules stream the video to the selected path, handling large files efficiently.
+
+
+File Naming: The app infers the file extension (e.g., .mp4, .webm) from the response’s Content-Type header or URL.
+Error Handling: If the download fails (e.g., invalid URL), the main process notifies the user via a dialog or UI message.
+
+Sample Code
+Below is a simplified example of the preload script and main process logic for video detection and downloading.
+
+const { ipcRenderer } = require('electron');
+
+let isHoveringVideo = false;let currentVideoURL = '';
+document.addEventListener('DOMContentLoaded', () => {  // Attach listeners to existing video elements  const videos = document.querySelectorAll('video');  videos.forEach(video => attachVideoListeners(video));
+  // Observe DOM for new video elements  const observer = new MutationObserver(mutations => {    mutations.forEach(mutation => {      mutation.addedNodes.forEach(node => {        if (node.tagName === 'VIDEO') {          attachVideoListeners(node);        }        if (node.querySelectorAll) {          node.querySelectorAll('video').forEach(video => attachVideoListeners(video));        }      });    });  });  observer.observe(document.body, { childList: true, subtree: true });});
+function attachVideoListeners(video) {  video.addEventListener('mouseenter', () => {    isHoveringVideo = true;    currentVideoURL = video.src;  });  video.addEventListener('mouseleave', () => {    isHoveringVideo = false;    currentVideoURL = '';  });}
+window.addEventListener('keydown', (event) => {  if (event.ctrlKey && event.key === 'l' && isHoveringVideo) {    ipcRenderer.send('download_video', currentVideoURL);  }});
