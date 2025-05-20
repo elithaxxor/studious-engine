@@ -1,5 +1,4 @@
-oposed Solution: Browser Extension Using WebExtensions
-Given the user’s interest in existing browsers, a browser extension using the WebExtensions API is recommended. This approach allows integration with Firefox, Chrome, and Opera, leveraging their rendering engines and download capabilities, while being platform-agnostic for Linux and macOS. The extension will enable users to download videos by detecting hover states and keyboard shortcuts, communicating between content and background scripts to manage the download process.
+##In progress
 
 Architecture Components
 The extension is structured into three main components, each with distinct responsibilities:
