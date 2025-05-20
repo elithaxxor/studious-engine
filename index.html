@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Video Quality Settings</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .animate-btn:hover { transform: scale(1.05); transition: transform 0.2s; }
+        .spinner { display: none; }
+    </style>
+</head>
+<body class="bg-gray-800 text-white p-4 w-64">
+    <h3 class="text-lg font-bold mb-4">Preferred Video Quality</h3>
+    <p class="text-sm mb-2 text-yellow-300">Note: Downloading may violate site terms. Use responsibly.</p>
+    <form id="qualityForm" class="space-y-2">
+        <label class="flex items-center">
+            <input type="radio" name="quality" value="240p" class="mr-2" aria-label="240p"> 240p
+        </label>
+        <label class="flex items-center">
+            <input type="radio" name="quality" value="480p" class="mr-2" aria-label="480p"> 480p
+        </label>
+        <label class="flex items-center">
+            <input type="radio" name="quality" value="720p" class="mr-2" aria-label="720p"> 720p
+        </label>
+        <label class="flex items-center">
+            <input type="radio" name="quality" value="1080p" class="mr-2" aria-label="1080p"> 1080p
+        </label>
+        <button type="submit" class="bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded animate-btn w-full">
+            Save
+            <span class="spinner inline-block animate-spin h-4 w-4 border-2 border-t-transparent rounded-full"></span>
+        </button>
+    </form>
+    <script src="popup.js"></script>
+</body>
+</html>

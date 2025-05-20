@@ -1,3 +1,11 @@
+/* main.js
+Electron main process: creates a window, listens for download_video events, and downloads videos via HTTPS.
+Handles file save dialog and download completion/error.
+No obvious errors in the shown code.*/ 
+
+
+
+
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const https = require('https');
 const fs = require('fs');
@@ -11,6 +19,8 @@ app.whenReady().then(() => {
     height: 600,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
+      
+      // ENTER CONTEXT HERE FOR PRELOAD 
       nodeIntegration: false,
       contextIsolation: true,
     },
@@ -45,3 +55,4 @@ ipcMain.on('download_video', async (event, url) => {
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
 });
+

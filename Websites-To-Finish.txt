@@ -1,0 +1,27 @@
+1. Netflix, Hulu, Disney+, Amazon Prime Video
+Challenge: These services use DRM (Digital Rights Management) such as Widevine or PlayReady, which encrypts video streams and keys at the browser/hardware level.
+Note: Downloading from these sites is not feasible with browser extensions due to DRM. Attempting to bypass DRM is also illegal in many jurisdictions.
+2. Twitter (X)
+Challenge: Video URLs are often generated dynamically, require authentication, and may use chunked transfer encoding.
+What to try: Monitor network requests for .mp4 or .m3u8 files, but many are protected or expire quickly.
+3. Facebook
+Challenge: Videos are embedded in complex page structures, sometimes with obfuscated URLs or split into many segments.
+What to try: Look for videoData or playable_url in page scripts or network requests.
+4. Instagram
+Challenge: Stories, reels, and posts use different endpoints, and URLs may require authentication tokens.
+What to try: Monitor network activity for direct .mp4 links, but note that private content is inaccessible.
+5. TikTok
+Challenge: Uses dynamic JavaScript and sometimes encrypted video URLs.
+What to try: Look for videoData or network requests, but URLs may be ephemeral.
+6. Pornhub, Xvideos, Redtube, etc.
+Challenge: Often use multiple CDNs, obfuscated JavaScript, or chained redirects.
+What to try: Look for mediaDefinitions or similar JSON blobs in scripts, or monitor for .mp4/.m3u8 in network requests.
+7. JWPlayer, Brightcove, Kaltura, Wistia, Dacast (Embedded Players)
+Challenge: Many publishers use these third-party platforms, which may use their own APIs, obfuscation, or DRM.
+What to try: Look for player config objects in scripts or network requests for manifest files.
+8. Live Streams (Sports, News)
+Challenge: May use tokenized HLS/DASH URLs, rotating keys, or geoblocking.
+What to try: Extract .m3u8 or .mpd links, but be aware of expiring tokens.
+9. Patreon, OnlyFans, and other paywalled platforms
+Challenge: Require authentication, and URLs are often short-lived or hidden behind JavaScript.
+What to try: Extraction only possible for content you have access to, and URLs must be captured during playback.
