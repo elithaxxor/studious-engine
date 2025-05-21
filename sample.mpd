@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<MPD>
+  <Period>
+    <AdaptationSet>
+      <Representation id="1" bandwidth="500000" codecs="avc1.64001F">
+        <BaseURL>video_low.mp4</BaseURL>
+      </Representation>
+      <Representation id="2" bandwidth="1500000" codecs="avc1.64001F">
+        <BaseURL>video_high.mp4</BaseURL>
+      </Representation>
+    </AdaptationSet>
+    <AdaptationSet>
+      <Representation id="3" bandwidth="128000" codecs="mp4a.40.2">
+        <BaseURL>audio_low.mp4</BaseURL>
+      </Representation>
+      <Representation id="4" bandwidth="256000" codecs="mp4a.40.2">
+        <BaseURL>audio_high.mp4</BaseURL>
+      </Representation>
+    </AdaptationSet>
+  </Period>
+</MPD>
