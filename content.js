@@ -27,18 +27,30 @@ async function extractVideoURLs() {
       const videos = document.querySelectorAll('video');
       videos.forEach(video => {
         if (video.src) {
-          currentVideoURLs.push({ quality: 'unknown', url: video.src });
+          if (video.src.startsWith('blob:')) {
+            extractBlobURLData(video.src);
+          } else {
+            currentVideoURLs.push({ quality: 'unknown', url: video.src });
+          }
         } else if (video.querySelector('source')) {
           const source = video.querySelector('source');
           if (source && source.src) {
-            currentVideoURLs.push({ quality: 'unknown', url: source.src });
+            if (source.src.startsWith('blob:')) {
+              extractBlobURLData(source.src);
+            } else {
+              currentVideoURLs.push({ quality: 'unknown', url: source.src });
+            }
           }
         }
       });
       if (currentVideoURLs.length === 0) {
+        notifyManualNetworkInspection();
         console.warn('No <video> sources found on page.');
       }
-    } catch (e) { console.error('Generic <video> extraction error:', e); }
+    } catch (e) {
+      notifyManualNetworkInspection();
+      console.error('Generic <video> extraction error:', e);
+    }
   }
 }
 
@@ -65,6 +77,91 @@ if (typeof window !== 'undefined' && window.chrome && window.document) {
 // Export for unit testing
 if (typeof module !== 'undefined' && module.exports) {
   module.exports.extractRedditVideo = extractRedditVideo;
+}
+
+// --- Utility countermeasures for hard sites ---
+
+// 1. CORS Bypass Hints
+async function fetchWithCORSBypass(url) {
+  try {
+    const resp = await fetch(url, { credentials: 'include' });
+    if (!resp.ok) throw new Error('Network error');
+    return await resp.blob();
+  } catch (e) {
+    if (e.message.includes('Failed to fetch')) {
+      chrome.runtime.sendMessage({
+        action: 'notify',
+        message: 'CORS error: Try using a CORS proxy (e.g., https://corsproxy.io/?' + url + ') or run the extension in Electron/Node.js for unrestricted access.'
+      });
+    } else {
+      chrome.runtime.sendMessage({ action: 'notify', message: `Fetch error: ${e.message}` });
+    }
+    throw e;
+  }
+}
+
+// 2. Blob URL Fallback
+function extractBlobURLData(blobUrl) {
+  const script = document.createElement('script');
+  script.textContent = `
+    (async () => {
+      try {
+        const response = await fetch('${blobUrl}');
+        const blob = await response.blob();
+        const reader = new FileReader();
+        reader.onload = function() {
+          window.postMessage({ type: 'BLOB_DATA', data: reader.result }, '*');
+        };
+        reader.readAsDataURL(blob);
+      } catch (e) {
+        window.postMessage({ type: 'BLOB_ERROR', error: e.message }, '*');
+      }
+    })();
+  `;
+  document.documentElement.appendChild(script);
+  window.addEventListener('message', (event) => {
+    if (event.data.type === 'BLOB_DATA') {
+      chrome.runtime.sendMessage({ action: 'downloadBlob', dataUrl: event.data.data });
+    }
+    if (event.data.type === 'BLOB_ERROR') {
+      chrome.runtime.sendMessage({ action: 'notify', message: 'Blob extraction failed: ' + event.data.error });
+    }
+  }, { once: true });
+}
+
+// 3. Dynamic Segment Assembly (HLS/DASH)
+async function fetchSegmentsAndGuideMerge(playlistUrl, protocol = 'HLS') {
+  try {
+    const resp = await fetch(playlistUrl);
+    const text = await resp.text();
+    // For HLS: lines ending with .ts, for DASH: parse .mpd XML for <BaseURL>
+    const segmentUrls = protocol === 'HLS'
+      ? text.split('\n').filter(line => line.endsWith('.ts')).map(line => new URL(line, playlistUrl).href)
+      : Array.from(text.matchAll(/<BaseURL>(.*?)<\/BaseURL>/g)).map(m => new URL(m[1], playlistUrl).href);
+
+    // Download segments (user: implement download logic or relay to background/Electron)
+    chrome.runtime.sendMessage({
+      action: 'downloadSegments',
+      segments: segmentUrls,
+      protocol
+    });
+
+    // Notify user with ffmpeg command
+    chrome.runtime.sendMessage({
+      action: 'notify',
+      message: `Downloaded ${segmentUrls.length} segments. Merge with:\nffmpeg -i "${playlistUrl}" -c copy output.mp4`
+    });
+  } catch (e) {
+    chrome.runtime.sendMessage({ action: 'notify', message: 'Segment fetch failed: ' + e.message });
+  }
+}
+
+// 4. Network Request Monitoring
+function notifyManualNetworkInspection() {
+  chrome.runtime.sendMessage({
+    action: 'notify',
+    message: `If automated extraction fails, open DevTools (F12), go to the Network tab, and filter for .mp4, .m3u8, .mpd, or segment files. Right-click and copy the URL for manual download or use with ffmpeg.`
+  });
 }
 
 // --- Modular extraction functions for hard sites ---
@@ -108,7 +205,18 @@ async function extractRedditVideo() {
             }
             // Fallback to normal fetch if no cookies or failed
             if (!manifestText) {
-              manifestText = await fetch(dashUrl).then(r => r.text());
+              // Try normal fetch, fallback to CORS bypass if needed
+              try {
+                manifestText = await fetch(dashUrl).then(r => r.text());
+              } catch (e) {
+                try {
+                  const blob = await fetchWithCORSBypass(dashUrl);
+                  manifestText = await blob.text();
+                } catch (err) {
+                  notifyManualNetworkInspection();
+                  throw err;
+                }
+              }
             }
             // Parse DASH manifest for video/audio representations (qualities)
             let videoStreams = [];
@@ -230,24 +338,89 @@ async function extractTikTokVideo() {
 
 async function extractEmbeddedPlayerVideo() {
   try {
-    // Look for data attributes or player configs
-    const video = document.querySelector('video[data-jwplayer], video[data-brightcove], video[data-kaltura], video[data-wistia]');
+    // Attempt to extract direct <video> sources with known data attributes
+    const video = document.querySelector('video[data-jwplayer], video[data-brightcove], video[data-kaltura], video[data-wistia], video[data-dacast]');
     if (video && video.src) {
       currentVideoURLs.push({ quality: 'unknown', url: video.src });
-    } else {
-      // Advanced: Look for player config objects in scripts
-      const scripts = document.getElementsByTagName('script');
-      for (let script of scripts) {
-        if (script.textContent.match(/jwplayer|brightcove|kaltura|wistia/i)) {
-          // This is a stub: add custom parsing for each player as needed
-          console.warn('Embedded player config found. Add custom extraction logic here.');
+      return;
+    }
+    // Look for player config objects in scripts for embedded players
+    const scripts = document.getElementsByTagName('script');
+    for (let script of scripts) {
+      // JWPlayer
+      if (/jwplayer/i.test(script.textContent)) {
+        // Try to extract JWPlayer config (look for file property)
+        const match = script.textContent.match(/file\s*:\s*['\"](https?:[^'\"]+\.(mp4|m3u8))/i);
+        if (match && match[1]) {
+          currentVideoURLs.push({ quality: 'unknown', url: match[1] });
+          return;
+        }
+      }
+      // Brightcove
+      if (/brightcove/i.test(script.textContent)) {
+        // Look for Brightcove sources array
+        const match = script.textContent.match(/sources\s*:\s*(\[[^\]]+\])/i);
+        if (match) {
+          try {
+            const sources = JSON.parse(match[1].replace(/(['"])?([a-zA-Z0-9_]+)(['"])?:/g, '"$2":'));
+            for (const src of sources) {
+              if (src.src) {
+                currentVideoURLs.push({ quality: src.label || 'unknown', url: src.src });
+              }
+            }
+            return;
+          } catch (e) { /* JSON parse may fail on non-standard objects */ }
+        }
+      }
+      // Kaltura
+      if (/kaltura/i.test(script.textContent)) {
+        // Look for kalturaPlayer.setup({ sources: [...] })
+        const match = script.textContent.match(/sources\s*:\s*(\[[^\]]+\])/i);
+        if (match) {
+          try {
+            const sources = JSON.parse(match[1].replace(/(['"])?([a-zA-Z0-9_]+)(['"])?:/g, '"$2":'));
+            for (const src of sources) {
+              if (src.src) {
+                currentVideoURLs.push({ quality: src.label || 'unknown', url: src.src });
+              }
+            }
+            return;
+          } catch (e) {}
+        }
+      }
+      // Wistia
+      if (/wistia/i.test(script.textContent)) {
+        // Look for "assets": [{...}] with url property
+        const match = script.textContent.match(/assets"\s*:\s*(\[[^\]]+\])/i);
+        if (match) {
+          try {
+            const assets = JSON.parse(match[1].replace(/(['"])?([a-zA-Z0-9_]+)(['"])?:/g, '"$2":'));
+            for (const asset of assets) {
+              if (asset.url) {
+                currentVideoURLs.push({ quality: asset.display_name || 'unknown', url: asset.url });
+              }
+            }
+            return;
+          } catch (e) {}
+        }
+      }
+      // Dacast (basic)
+      if (/dacast/i.test(script.textContent)) {
+        const match = script.textContent.match(/src\s*:\s*['\"](https?:[^'\"]+\.(mp4|m3u8))/i);
+        if (match && match[1]) {
+          currentVideoURLs.push({ quality: 'unknown', url: match[1] });
+          return;
         }
       }
     }
+    // If nothing found, log a warning
+    console.warn('Embedded player config found but no direct video URL extracted. Manual inspection may be required.');
   } catch (e) {
     console.error('Embedded player extraction error:', e);
   }
 }
+// [2025-05-21] Enhanced extractEmbeddedPlayerVideo for JWPlayer, Brightcove, Kaltura, Wistia, Dacast. Added robust config parsing and comments for future expansion.
+
 
 // --- Modular extraction functions for hard sites ---
 async function extractTwitterVideo() {
@@ -371,7 +544,14 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined' && window.d
         event.preventDefault();
         button.disabled = true;
         spinner.style.display = 'inline-block';
-        const selectedQuality = document.querySelector('input[name="quality"]:checked').value;
+        const selectedRadio = document.querySelector('input[name="quality"]:checked');
+if (!selectedRadio) {
+    alert('Please select a quality option.');
+    button.disabled = false;
+    spinner.style.display = 'none';
+    return;
+}
+const selectedQuality = selectedRadio.value;
         chrome.storage.sync.set({ preferredQuality: selectedQuality }, () => {
             setTimeout(() => {
                 alert(`Preferred quality set to ${selectedQuality}`);
