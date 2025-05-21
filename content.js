@@ -44,7 +44,35 @@ async function extractVideoURLs() {
         }
       });
       if (currentVideoURLs.length === 0) {
-        notifyManualNetworkInspection();
+        // Attempt to fetch a known playlist or video manifest if present
+        const m3u8 = document.querySelector('a[href$=".m3u8"]');
+        const mpd = document.querySelector('a[href$=".mpd"]');
+        let manifestUrl = m3u8 ? m3u8.href : (mpd ? mpd.href : null);
+        if (manifestUrl) {
+          // Try native fetch, CORS bypass, then proxy fetch
+          (async () => {
+            try {
+              await fetch(manifestUrl);
+            } catch (e) {
+              try {
+                await fetchWithCORSBypass(manifestUrl);
+              } catch (err) {
+                try {
+                  const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(manifestUrl)}`;
+                  await fetch(proxyUrl);
+                  chrome.runtime.sendMessage({
+                    action: 'notify',
+                    message: `CORS bypassed using proxy: ${proxyUrl}`
+                  });
+                } catch (proxyErr) {
+                  notifyManualNetworkInspection();
+                }
+              }
+            }
+          })();
+        } else {
+          notifyManualNetworkInspection();
+        }
         console.warn('No <video> sources found on page.');
       }
     } catch (e) {
@@ -205,7 +233,7 @@ async function extractRedditVideo() {
             }
             // Fallback to normal fetch if no cookies or failed
             if (!manifestText) {
-              // Try normal fetch, fallback to CORS bypass if needed
+              // Try normal fetch, fallback to CORS bypass, then proxy fetch if needed
               try {
                 manifestText = await fetch(dashUrl).then(r => r.text());
               } catch (e) {
@@ -213,8 +241,18 @@ async function extractRedditVideo() {
                   const blob = await fetchWithCORSBypass(dashUrl);
                   manifestText = await blob.text();
                 } catch (err) {
-                  notifyManualNetworkInspection();
-                  throw err;
+                  try {
+                    // Proxy fetch via corsproxy.io
+                    const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(dashUrl)}`;
+                    manifestText = await fetch(proxyUrl).then(r => r.text());
+                    chrome.runtime.sendMessage({
+                      action: 'notify',
+                      message: `CORS bypassed using proxy: ${proxyUrl}`
+                    });
+                  } catch (proxyErr) {
+                    notifyManualNetworkInspection();
+                    throw proxyErr;
+                  }
                 }
               }
             }
