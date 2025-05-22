@@ -58,12 +58,22 @@ async function extractVideoURLs() {
                 await fetchWithCORSBypass(manifestUrl);
               } catch (err) {
                 try {
-                  const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(manifestUrl)}`;
-                  await fetch(proxyUrl);
-                  chrome.runtime.sendMessage({
-                    action: 'notify',
-                    message: `CORS bypassed using proxy: ${proxyUrl}`
-                  });
+                  let proxyUrl = getNextProxyUrl(manifestUrl);
+                  let lastErr;
+                  for (let i = 0; i < proxyList.length; i++) {
+                    try {
+                      await fetch(proxyUrl);
+                      chrome.runtime.sendMessage({
+                        action: 'notify',
+                        message: `CORS bypassed using proxy: ${proxyUrl}`
+                      });
+                      break;
+                    } catch (proxyErr) {
+                      lastErr = proxyErr;
+                      proxyUrl = getNextProxyUrl(manifestUrl);
+                    }
+                  }
+                  if (lastErr) notifyManualNetworkInspection();
                 } catch (proxyErr) {
                   notifyManualNetworkInspection();
                 }
@@ -108,6 +118,26 @@ if (typeof module !== 'undefined' && module.exports) {
 }
 
 // --- Utility countermeasures for hard sites ---
+
+// Load proxies from proxies.json (synchronously for simplicity)
+let proxyList = [
+  "https://corsproxy.io/?",
+  "https://api.allorigins.win/raw?url=",
+  "https://thingproxy.freeboard.io/fetch/"
+];
+let proxyIndex = 0;
+
+fetch('/proxies.json')
+  .then(r => r.json())
+  .then(list => { if (Array.isArray(list) && list.length) proxyList = list; })
+  .catch(()=>{});
+
+function getNextProxyUrl(targetUrl) {
+  if (!proxyList.length) return null;
+  const proxyUrl = proxyList[proxyIndex] + encodeURIComponent(targetUrl);
+  proxyIndex = (proxyIndex + 1) % proxyList.length;
+  return proxyUrl;
+}
 
 // 1. CORS Bypass Hints
 async function fetchWithCORSBypass(url) {
@@ -242,13 +272,26 @@ async function extractRedditVideo() {
                   manifestText = await blob.text();
                 } catch (err) {
                   try {
-                    // Proxy fetch via corsproxy.io
-                    const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(dashUrl)}`;
-                    manifestText = await fetch(proxyUrl).then(r => r.text());
-                    chrome.runtime.sendMessage({
-                      action: 'notify',
-                      message: `CORS bypassed using proxy: ${proxyUrl}`
-                    });
+                    // Proxy fetch via rotating proxies
+                    let proxyUrl = getNextProxyUrl(dashUrl);
+                    let lastErr;
+                    for (let i = 0; i < proxyList.length; i++) {
+                      try {
+                        manifestText = await fetch(proxyUrl).then(r => r.text());
+                        chrome.runtime.sendMessage({
+                          action: 'notify',
+                          message: `CORS bypassed using proxy: ${proxyUrl}`
+                        });
+                        break;
+                      } catch (proxyErr) {
+                        lastErr = proxyErr;
+                        proxyUrl = getNextProxyUrl(dashUrl);
+                      }
+                    }
+                    if (!manifestText) {
+                      notifyManualNetworkInspection();
+                      throw lastErr;
+                    }
                   } catch (proxyErr) {
                     notifyManualNetworkInspection();
                     throw proxyErr;
