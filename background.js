@@ -5,14 +5,14 @@ No obvious errors in the shown code. */
 
 
 
-// Add to existing background.js
-const api = window.browser || window.chrome;
+// Manifest V3 Service Worker Background Script
+// Use chrome.* APIs directly
 
-api.runtime.onMessage.addListener((message) => {
+chrome.runtime.onMessage.addListener((message) => {
   // HLS or DASH segment download handler
   if (message.action === 'downloadSegments') {
     message.segments.forEach((segment, index) => {
-      api.downloads.download({
+      chrome.downloads.download({
         url: segment,
         filename: `video_segment_${index}.${message.protocol === 'HLS' ? 'ts' : 'm4s'}`,
         saveAs: false
@@ -24,7 +24,7 @@ api.runtime.onMessage.addListener((message) => {
     } else {
       mergeMsg = `Downloading ${message.protocol} segments. After all downloads complete, merge them with:\nffmpeg -i "playlist.m3u8" -c copy output.mp4\nOr use the original .m3u8 URL.`;
     }
-    api.notifications.create({
+    chrome.notifications.create({
       type: 'basic',
       iconUrl: 'icon.png',
       title: 'Video Downloader',
@@ -33,7 +33,7 @@ api.runtime.onMessage.addListener((message) => {
   }
   // User notification handler
   if (message.action === 'notify' && message.message) {
-    api.notifications.create({
+    chrome.notifications.create({
       type: 'basic',
       iconUrl: 'icon.png',
       title: 'Video Downloader',
@@ -41,6 +41,39 @@ api.runtime.onMessage.addListener((message) => {
     });
   }
   // ... existing handlers ...
+
+  // Proxy management handlers for popup
+  if (message.action === 'loadProxies') {
+    fetch('proxies.json')
+      .then(r => r.json())
+      .then(proxies => {
+        chrome.runtime.sendMessage({ action: 'proxiesLoaded', proxies });
+        if (message.callbackId) chrome.runtime.sendMessage({ callbackId: message.callbackId, proxies });
+      })
+      .catch(() => {
+        chrome.runtime.sendMessage({ action: 'proxiesLoaded', proxies: [] });
+        if (message.callbackId) chrome.runtime.sendMessage({ callbackId: message.callbackId, proxies: [] });
+      });
+    return true;
+  }
+  if (message.action === 'saveProxies' && Array.isArray(message.proxies)) {
+    // Write proxies.json using the File System Access API if available (MV3 workaround)
+    // Fallback: notify user to manually update proxies.json
+    try {
+      // MV3 restrictions: writing files is not allowed, so notify user
+      chrome.notifications.create({
+        type: 'basic',
+        iconUrl: 'icon.png',
+        title: 'Video Downloader',
+        message: 'Due to browser restrictions, please update proxies.json manually for persistent changes.'
+      });
+      if (message.callbackId) chrome.runtime.sendMessage({ callbackId: message.callbackId, ok: false });
+      return true;
+    } catch (e) {
+      if (message.callbackId) chrome.runtime.sendMessage({ callbackId: message.callbackId, ok: false });
+      return false;
+    }
+  }
 });
 
 // --- Session/Cookie and webRequest logic for authenticated videos ---

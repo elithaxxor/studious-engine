@@ -1,11 +1,14 @@
 {
-  "manifest_version": 2,
+  "manifest_version": 3,
   "name": "Video Downloader",
   "version": "1.0",
   "description": "Download videos by hovering and pressing Ctrl+L",
   "permissions": [
     "activeTab",
     "downloads"
+  ],
+  "host_permissions": [
+    "<all_urls>"
   ],
   "content_scripts": [
     {
@@ -14,7 +17,10 @@
     }
   ],
   "background": {
-    "scripts": ["background.js"],
-    "persistent": false
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "index.html"
   }
 }
+

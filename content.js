@@ -117,6 +117,67 @@ if (typeof module !== 'undefined' && module.exports) {
   module.exports.extractRedditVideo = extractRedditVideo;
 }
 
+// --- Advanced extraction: XHR/fetch/iframe interceptors ---
+
+// Intercept XHR/fetch requests to capture media URLs
+(function interceptXHRandFetch() {
+  if (typeof window === 'undefined') return;
+  const origXHROpen = XMLHttpRequest.prototype.open;
+  XMLHttpRequest.prototype.open = function(method, url) {
+    if (/\.m3u8$|\.mpd$|\.mp4$|\.ts$|\.m4s$/i.test(url)) {
+      window.currentVideoURLs = window.currentVideoURLs || [];
+      if (!window.currentVideoURLs.some(v => v.url === url)) {
+        window.currentVideoURLs.push({ quality: 'XHR', url });
+        if (window.chrome && chrome.runtime) {
+          chrome.runtime.sendMessage({ action: 'notify', message: `Captured media URL via XHR: ${url}` });
+        }
+      }
+    }
+    return origXHROpen.apply(this, arguments);
+  };
+  if (window.fetch) {
+    const origFetch = window.fetch;
+    window.fetch = function() {
+      const url = arguments[0];
+      if (typeof url === 'string' && /\.m3u8$|\.mpd$|\.mp4$|\.ts$|\.m4s$/i.test(url)) {
+        window.currentVideoURLs = window.currentVideoURLs || [];
+        if (!window.currentVideoURLs.some(v => v.url === url)) {
+          window.currentVideoURLs.push({ quality: 'fetch', url });
+          if (window.chrome && chrome.runtime) {
+            chrome.runtime.sendMessage({ action: 'notify', message: `Captured media URL via fetch: ${url}` });
+          }
+        }
+      }
+      return origFetch.apply(this, arguments);
+    };
+  }
+})();
+
+// Recursively scan iframes for embedded video sources
+async function extractFromIframes() {
+  const iframes = document.querySelectorAll('iframe');
+  for (let iframe of iframes) {
+    try {
+      const doc = iframe.contentDocument || iframe.contentWindow?.document;
+      if (!doc) continue;
+      // Look for <video> or <source> in iframe
+      const videos = doc.querySelectorAll('video');
+      videos.forEach(video => {
+        if (video.src) {
+          currentVideoURLs.push({ quality: 'iframe', url: video.src });
+        } else if (video.querySelector('source')) {
+          const source = video.querySelector('source');
+          if (source && source.src) currentVideoURLs.push({ quality: 'iframe', url: source.src });
+        }
+      });
+      // Recurse into nested iframes
+      await extractFromIframes.call({ document: doc });
+    } catch (e) {
+      // Ignore cross-origin errors
+    }
+  }
+}
+
 // --- Utility countermeasures for hard sites ---
 
 // Load proxies from proxies.json (synchronously for simplicity)

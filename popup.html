@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Video Downloader</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 12px; }
+    .tabs { display: flex; margin-bottom: 10px; }
+    .tab { padding: 6px 16px; cursor: pointer; border: 1px solid #ccc; border-bottom: none; background: #eee; margin-right: 2px; }
+    .tab.active { background: #fff; font-weight: bold; }
+    .tab-content { border: 1px solid #ccc; padding: 10px; background: #fff; }
+    .proxy-list { margin-bottom: 12px; }
+    .proxy-item { display: flex; align-items: center; margin-bottom: 4px; }
+    .proxy-item input { width: 80%; margin-right: 8px; }
+    .segment-list { margin-bottom: 10px; }
+    .segment-item { font-size: 12px; margin-bottom: 2px; }
+    .log-list { font-size: 12px; max-height: 120px; overflow-y: auto; background: #fafafa; border: 1px solid #eee; margin-bottom: 10px; padding: 5px; }
+    button { margin-left: 4px; }
+    #mergeStatus { font-size: 12px; color: #1976d2; }
+  </style>
+</head>
+<body>
+  <div class="tabs">
+    <div class="tab active" id="tab-proxy">Proxy</div>
+    <div class="tab" id="tab-log">Extraction Log</div>
+    <div class="tab" id="tab-merge">Segment Merge</div>
+  </div>
+  <div class="tab-content" id="content-proxy">
+    <h2>Proxy Settings</h2>
+    <div class="proxy-list" id="proxyList"></div>
+    <input type="text" id="newProxy" placeholder="Add new proxy URL" style="width:80%;">
+    <button id="addProxy">Add</button>
+    <hr/>
+    <button id="saveProxies">Save</button>
+    <span id="status" style="margin-left:10px;"></span>
+  </div>
+  <div class="tab-content" id="content-log" style="display:none;">
+    <h2>Extraction Log</h2>
+    <div class="log-list" id="logList"></div>
+    <button id="clearLog">Clear Log</button>
+  </div>
+  <div class="tab-content" id="content-merge" style="display:none;">
+    <h2>Segment Merge</h2>
+    <div class="segment-list" id="segmentList"></div>
+    <button id="mergeSegments">Merge & Download</button>
+    <span id="mergeStatus"></span>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>

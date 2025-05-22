@@ -38,8 +38,8 @@ ipcMain.on('download_video', async (event, url) => {
     https.get(url, (response) => {
       const contentType = response.headers['content-type'];
       let extension = '.mp4';
-      if (contentType.includes('video/webm')) extension = '.webm';
-      else if (contentType.includes('video/ogg')) extension = '.ogg';
+      if (contentType && contentType.includes('video/webm')) extension = '.webm';
+      else if (contentType && contentType.includes('video/ogg')) extension = '.ogg';
       response.pipe(file);
       file.on('finish', () => {
         file.close();
@@ -54,5 +54,56 @@ ipcMain.on('download_video', async (event, url) => {
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
+});
+
+// Automated segment merging (Electron only)
+const { spawn } = require('child_process');
+ipcMain.on('download_segments_and_merge', async (event, { segments, output, protocol }) => {
+  try {
+    // Save segments to temp files
+    const tempDir = fs.mkdtempSync(path.join(app.getPath('temp'), 'segments-'));
+    const segmentFiles = [];
+    for (let i = 0; i < segments.length; i++) {
+      const segUrl = segments[i];
+      const segPath = path.join(tempDir, `seg${i}.${protocol === 'HLS' ? 'ts' : 'm4s'}`);
+      const file = fs.createWriteStream(segPath);
+      await new Promise((resolve, reject) => {
+        https.get(segUrl, (response) => {
+          response.pipe(file);
+          file.on('finish', () => { file.close(resolve); });
+        }).on('error', reject);
+      });
+      segmentFiles.push(segPath);
+    }
+    // Create ffmpeg concat list file
+    const listPath = path.join(tempDir, 'segments.txt');
+    fs.writeFileSync(listPath, segmentFiles.map(f => `file '${f.replace(/'/g, "'\\''")}'`).join('\n'));
+    // Prompt user for save location
+    const result = await dialog.showSaveDialog(mainWindow, {
+      defaultPath: output || `merged.${protocol === 'HLS' ? 'mp4' : 'mp4'}`,
+      filters: [{ name: 'Videos', extensions: ['mp4', 'webm', 'ogg'] }],
+    });
+    if (result.canceled || !result.filePath) throw new Error('User canceled');
+    // Run ffmpeg to merge
+    const ffmpegArgs = [
+      '-f', 'concat', '-safe', '0', '-i', listPath, '-c', 'copy', result.filePath
+    ];
+    const ffmpeg = spawn('ffmpeg', ffmpegArgs);
+    let stderr = '';
+    ffmpeg.stderr.on('data', data => { stderr += data.toString(); });
+    ffmpeg.on('close', code => {
+      if (code === 0) {
+        mainWindow.webContents.send('merge_complete', result.filePath);
+      } else {
+        mainWindow.webContents.send('merge_error', stderr || 'ffmpeg failed');
+      }
+      // Clean up temp files
+      segmentFiles.forEach(f => fs.unlinkSync(f));
+      fs.unlinkSync(listPath);
+      fs.rmdirSync(tempDir);
+    });
+  } catch (err) {
+    mainWindow.webContents.send('merge_error', err.message);
+  }
 });
 

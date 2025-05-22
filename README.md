@@ -1,6 +1,11 @@
 oposed Solution: Browser Extension Using WebExtensions
 Given the user’s## Features
 
+### 2025-05-21 Major Update
+- **Advanced Extraction:** Automatically captures video/media URLs from XHR/fetch requests and recursively scans iframes for embedded sources.
+- **Automated Segment Merging:** In Electron, segments are downloaded and merged automatically using ffmpeg. In browser, user receives a merge command for ffmpeg.
+- **UI Improvements:** Popup now has tabs for Proxy Management, Extraction Log, and Segment Merge. Extraction log displays all captured URLs and events. Segment merge UI allows one-click merging in Electron.
+
 - Advanced Reddit DASH extraction: finds all video/audio streams, sorts by quality, and guides users to merge with ffmpeg.
 - Session/cookie support for authenticated videos (background script monitors and supplies session cookies).
 - Cross-browser support: Chrome and Firefox (WebExtensions API).
@@ -23,9 +28,37 @@ Supports multi-site video extraction:
 Extraction logic is robust, with error handling and user notifications for each### Supported Sites
 
 - **Reddit**: Extracts all available DASH video/audio qualities, sorts by best quality, and provides merging instructions. Handles authenticated videos using session cookies (works in Chrome and Firefox).
+- **Embedded Players (JWPlayer, Brightcove, Kaltura, Wistia, Dacast)**: Attempts to extract direct video URLs by parsing player config objects in scripts. Handles common config patterns, but some custom implementations may require manual inspection or future updates.
+- **Other Hard Sites**: Extraction strategies include parsing network requests, inspecting obfuscated JavaScript, and trying fallback methods (see below for countermeasures).
 
 Detects <video> elements using document.querySelectorAll('video') and attaches mouseenter and mouseleave event listeners to track hover states.
 Uses a MutationObserver to detect dynamically added videos, ensuring compatibility with single-page applications or pages with lazy-loaded content.
+
+---
+
+## Countermeasures for Download Firewalls
+
+Some video sites deploy countermeasures to block direct downloads. This extension includes and recommends the following techniques:
+
+- **User-Agent Spoofing**: Mimics browser or mobile user-agents when fetching video segments.
+- **Referer Spoofing**: Sets the referer header to the video page's URL to satisfy anti-leeching checks.
+- **Session Cookie Relay**: Relays session cookies from the browser to the fetch/download requests (requires permissions and user authentication).
+- **CORS Bypass Hints**: Attempts to fetch resources with CORS headers, or provides instructions for using proxy tools if blocked.
+- **Fallback to Blob URLs**: If direct links fail, tries to extract blob URLs (requires in-page JS execution or relay to Electron main process).
+- **Dynamic Segment Assembly**: Downloads HLS/DASH segments individually and merges them locally (user provided ffmpeg guidance).
+- **Network Request Monitoring**: Guides users to open DevTools and look for .mp4, .m3u8, .mpd, or segment URLs in the Network tab if automated extraction fails.
+
+> **Practical Note:** If a direct download fails, try reloading the page, logging in, or using the extension on a different browser. For sites with aggressive anti-download measures, manual inspection or advanced proxy techniques may be required.
+
+---
+
+## Legal and Ethical Guidance
+
+- Only download content you have the legal right to access.
+- Respect site terms of service and copyright laws in your jurisdiction.
+- This tool is for personal, educational, and fair-use scenarios. Commercial redistribution or circumvention of DRM is not supported.
+
+---
 Listens for keydown events to identify the keyboard shortcut (e.g., Ctrl+L), checking if the user is hovering over a video before triggering a download.
 Sends messages to the background script via the messaging system when a download is requested, passing the video URL.
 Background Script:
