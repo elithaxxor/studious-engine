@@ -21,10 +21,19 @@
   </style>
 </head>
 <body>
-  <div class="tabs">
-    <div class="tab active" id="tab-proxy">Proxy</div>
-    <div class="tab" id="tab-log">Extraction Log</div>
-    <div class="tab" id="tab-merge">Segment Merge</div>
+  <div class="flex justify-between items-center mb-2">
+    <div class="tabs flex">
+      <div class="tab active flex items-center gap-1" id="tab-proxy" tabindex="0" aria-label="Proxy">
+        <span>🔌</span> Proxy
+      </div>
+      <div class="tab flex items-center gap-1" id="tab-log" tabindex="0" aria-label="Extraction Log">
+        <span>📜</span> Log
+      </div>
+      <div class="tab flex items-center gap-1" id="tab-merge" tabindex="0" aria-label="Segment Merge">
+        <span>🧩</span> Merge
+      </div>
+    </div>
+    <button id="themeToggle" class="ml-2 p-1 rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 focus:outline focus:ring" aria-label="Toggle theme">🌙</button>
   </div>
   <div class="tab-content" id="content-proxy">
     <h2>Proxy Settings</h2>
