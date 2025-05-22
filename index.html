@@ -1,34 +1,93 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Video Quality Settings</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        .animate-btn:hover { transform: scale(1.05); transition: transform 0.2s; }
-        .spinner { display: none; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Video Downloader</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .tabs { display: flex; margin-bottom: 10px; }
+    .tab { padding: 6px 16px; cursor: pointer; border: 1px solid #ccc; border-bottom: none; background: #eee; margin-right: 2px; }
+    .tab.active { background: #fff; font-weight: bold; }
+    .tab-content { border: 1px solid #ccc; padding: 10px; background: #fff; }
+    .proxy-list { margin-bottom: 12px; }
+    .proxy-item { display: flex; align-items: center; margin-bottom: 4px; }
+    .proxy-item input { width: 80%; margin-right: 8px; }
+    .segment-list { margin-bottom: 10px; }
+    .segment-item { font-size: 12px; margin-bottom: 2px; }
+    .log-list { font-size: 12px; max-height: 120px; overflow-y: auto; background: #fafafa; border: 1px solid #eee; margin-bottom: 10px; padding: 5px; }
+    button { margin-left: 4px; }
+    #mergeStatus { font-size: 12px; color: #1976d2; }
+  </style>
 </head>
-<body class="bg-gray-800 text-white p-4 w-64">
+<body class="bg-gray-800 text-white p-4 w-80">
+  <div class="tabs">
+    <div class="tab active" id="tab-quality">Quality</div>
+    <div class="tab" id="tab-proxy">Proxy</div>
+    <div class="tab" id="tab-log">Extraction Log</div>
+    <div class="tab" id="tab-merge">Segment Merge</div>
+  </div>
+  <div class="tab-content" id="content-quality">
     <h3 class="text-lg font-bold mb-4">Preferred Video Quality</h3>
     <p class="text-sm mb-2 text-yellow-300">Note: Downloading may violate site terms. Use responsibly.</p>
     <form id="qualityForm" class="space-y-2">
-        <label class="flex items-center">
-            <input type="radio" name="quality" value="240p" class="mr-2" aria-label="240p"> 240p
-        </label>
-        <label class="flex items-center">
-            <input type="radio" name="quality" value="480p" class="mr-2" aria-label="480p"> 480p
-        </label>
-        <label class="flex items-center">
-            <input type="radio" name="quality" value="720p" class="mr-2" aria-label="720p"> 720p
-        </label>
-        <label class="flex items-center">
-            <input type="radio" name="quality" value="1080p" class="mr-2" aria-label="1080p"> 1080p
-        </label>
-        <button type="submit" class="bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded animate-btn w-full">
-            Save
-            <span class="spinner inline-block animate-spin h-4 w-4 border-2 border-t-transparent rounded-full"></span>
-        </button>
+      <label class="flex items-center">
+        <input type="radio" name="quality" value="240p" class="mr-2" aria-label="240p"> 240p
+      </label>
+      <label class="flex items-center">
+        <input type="radio" name="quality" value="480p" class="mr-2" aria-label="480p"> 480p
+      </label>
+      <label class="flex items-center">
+        <input type="radio" name="quality" value="720p" class="mr-2" aria-label="720p"> 720p
+      </label>
+      <label class="flex items-center">
+        <input type="radio" name="quality" value="1080p" class="mr-2" aria-label="1080p"> 1080p
+      </label>
+      <button type="submit" class="bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded animate-btn w-full">
+        Save
+        <span class="spinner inline-block animate-spin h-4 w-4 border-2 border-t-transparent rounded-full"></span>
+      </button>
     </form>
-    <script src="popup.js"></script>
+  </div>
+  <div class="tab-content" id="content-proxy" style="display:none;">
+    <h2>Proxy Settings</h2>
+    <div class="proxy-list" id="proxyList"></div>
+    <input type="text" id="newProxy" placeholder="Add new proxy URL" style="width:80%;">
+    <button id="addProxy">Add</button>
+    <hr/>
+    <button id="saveProxies">Save</button>
+    <span id="status" style="margin-left:10px;"></span>
+  </div>
+  <div class="tab-content" id="content-log" style="display:none;">
+    <h2>Extraction Log</h2>
+    <div class="log-list" id="logList"></div>
+    <button id="clearLog">Clear Log</button>
+  </div>
+  <div class="tab-content" id="content-merge" style="display:none;">
+    <h2>Segment Merge</h2>
+    <div class="segment-list" id="segmentList"></div>
+    <button id="mergeSegments">Merge & Download</button>
+    <span id="mergeStatus"></span>
+  </div>
+  <script src="popup.js"></script>
+  <script>
+    // Tab logic for index.html (mirrors popup.js)
+    document.addEventListener('DOMContentLoaded', function() {
+      const tabs = [
+        { tab: document.getElementById('tab-quality'), content: document.getElementById('content-quality') },
+        { tab: document.getElementById('tab-proxy'), content: document.getElementById('content-proxy') },
+        { tab: document.getElementById('tab-log'), content: document.getElementById('content-log') },
+        { tab: document.getElementById('tab-merge'), content: document.getElementById('content-merge') }
+      ];
+      tabs.forEach(({ tab }, idx) => {
+        if (tab) tab.onclick = () => {
+          tabs.forEach(({ tab, content }, j) => {
+            if (tab) tab.classList.toggle('active', idx === j);
+            if (content) content.style.display = idx === j ? '' : 'none';
+          });
+        };
+      });
+    });
+  </script>
 </body>
 </html>
