@@ -56,5 +56,30 @@
     <span id="mergeStatus"></span>
   </div>
   <script src="popup.js"></script>
+  <footer class="mt-4 text-xs text-gray-400 text-center border-t border-gray-700 pt-2">
+    <span>v2025.05.21 &bull; <a href="https://github.com/elithaxxor/studious-engine" class="underline hover:text-blue-400" target="_blank" rel="noopener">GitHub</a></span>
+  </footer>
+  <a href="#content-proxy" class="sr-only focus:not-sr-only absolute top-0 left-0 bg-blue-600 text-white p-2 z-50">Skip to content</a>
+  <script>
+    // Theme toggle with persistence
+    const themeToggle = document.getElementById('themeToggle');
+    function setTheme(dark) {
+      document.documentElement.classList.toggle('dark', dark);
+      localStorage.setItem('theme', dark ? 'dark' : 'light');
+      themeToggle.textContent = dark ? '☀️' : '🌙';
+    }
+    themeToggle && themeToggle.addEventListener('click', () => {
+      setTheme(!document.documentElement.classList.contains('dark'));
+    });
+    // On load
+    const storedTheme = localStorage.getItem('theme');
+    if (storedTheme) setTheme(storedTheme === 'dark');
+    // Keyboard navigation for tabs
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') tab.click();
+      });
+    });
+  </script>
 </body>
 </html>
