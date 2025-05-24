@@ -3,6 +3,49 @@ let currentVideoURLs = [];
 let streamingInfo = null;
 
 let preferredQuality = '720p';
+let shortcutKey = 'Ctrl+L';
+let hoverVideo = null;
+
+chrome.storage.sync.get(['preferredQuality', 'shortcut'], (res) => {
+  if (res.preferredQuality) preferredQuality = res.preferredQuality;
+  if (res.shortcut) shortcutKey = res.shortcut;
+});
+
+function matchesShortcut(e) {
+  const parts = shortcutKey.split('+');
+  const key = parts.pop();
+  const mods = parts.map(p => p.toLowerCase());
+  if (key.toLowerCase() !== e.key.toLowerCase()) return false;
+  if (mods.includes('ctrl') && !e.ctrlKey) return false;
+  if (mods.includes('alt') && !e.altKey) return false;
+  if (mods.includes('shift') && !e.shiftKey) return false;
+  return true;
+}
+
+function attachVideoListeners(video) {
+  video.addEventListener('mouseenter', () => hoverVideo = video);
+  video.addEventListener('mouseleave', () => { if (hoverVideo === video) hoverVideo = null; });
+}
+
+function initVideoTracking() {
+  document.querySelectorAll('video').forEach(v => attachVideoListeners(v));
+  new MutationObserver((mutations) => {
+    mutations.forEach(m => m.addedNodes.forEach(node => {
+      if (node.tagName === 'VIDEO') attachVideoListeners(node);
+    }));
+  }).observe(document.body, { childList: true, subtree: true });
+  document.addEventListener('keydown', (e) => {
+    if (hoverVideo && matchesShortcut(e)) {
+      e.preventDefault();
+      extractVideoURLs();
+    }
+  });
+}
+
+initVideoTracking();
+
+
+let preferredQuality = '720p';
 let preferredFormat = 'mp4';
 let triggerKey = 'Ctrl+L';
 let downloadFolder = '';
@@ -36,6 +79,7 @@ document.addEventListener('keydown', async (e) => {
     addToHistory(chosen.url, filename);
   }
 });
+
 
 
 async function extractVideoURLs() {
@@ -160,10 +204,14 @@ else if (window.location.hostname.includes('pornhub.com')) {
             const url = d.videoUrl || d.url;
             if (url && (url.includes('.mp4') || url.includes('.m3u8'))) {
 
+              currentVideoURLs.push({ quality: d.quality || 'unknown', url });
+
+
               const fmt = url.includes('.m3u8') ? 'hls' : 'mp4';
               currentVideoURLs.push({ quality: d.quality || 'unknown', url, format: fmt });
 
               currentVideoURLs.push({ quality: d.quality || 'unknown', url });
+
 
             }
           });
@@ -171,9 +219,13 @@ else if (window.location.hostname.includes('pornhub.com')) {
           const urlMatches = script.textContent.match(/https?:[^"']+\.(?:mp4|m3u8)[^"']*/g);
           if (urlMatches) {
 
+            urlMatches.forEach(u => currentVideoURLs.push({ quality: 'unknown', url: u.replace(/\\/g, '') }));
+
+
             urlMatches.forEach(u => currentVideoURLs.push({ quality: 'unknown', url: u.replace(/\\/g, ''), format: u.includes('.m3u8') ? 'hls' : 'mp4' }));
 
             urlMatches.forEach(u => currentVideoURLs.push({ quality: 'unknown', url: u.replace(/\\/g, '') }));
+
 
           }
         }
@@ -229,6 +281,18 @@ else {
     }
   } catch (e) { console.error('Generic <video> extraction error:', e); }
 }
+
+
+  if (currentVideoURLs.length > 0 && !streamingInfo) {
+    const match = currentVideoURLs.find(v => v.quality === preferredQuality) || currentVideoURLs[0];
+    const name = match.url.split('/').pop().split('?')[0] || 'video.mp4';
+    chrome.runtime.sendMessage({
+      action: 'queueDownload',
+      item: { url: match.url, filename: name }
+    });
+  } else if (!streamingInfo) {
+    chrome.runtime.sendMessage({ action: 'notify', message: 'No downloadable video found on this page.' });
+  }
 
 }
 
@@ -296,6 +360,7 @@ async function fetchDASHSegments(url) {
   }
 }
 
+
 function matchesShortcut(e) {
   const parts = triggerKey.split('+');
   const key = parts.pop().toLowerCase();
@@ -330,4 +395,5 @@ function addToHistory(url, filename) {
 }
 
 });
+
 
