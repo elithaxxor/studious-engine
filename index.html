@@ -9,7 +9,7 @@
     </style>
 </head>
 <body class="bg-gray-800 text-white p-4 w-64">
-    <h3 class="text-lg font-bold mb-4">Preferred Video Quality</h3>
+    <h3 class="text-lg font-bold mb-2">Download Preferences</h3>
     <p class="text-sm mb-2 text-yellow-300">Note: Downloading may violate site terms. Use responsibly.</p>
     <form id="qualityForm" class="space-y-2">
         <label class="flex items-center">
@@ -24,17 +24,44 @@
         <label class="flex items-center">
             <input type="radio" name="quality" value="1080p" class="mr-2" aria-label="1080p"> 1080p
         </label>
+
         <label class="block mt-3 text-sm">Shortcut
             <input id="shortcut" type="text" class="w-full text-black p-1 rounded" placeholder="Ctrl+L">
         </label>
+
+        <div class="mt-3">
+            <span class="block mb-1">Format</span>
+            <label class="flex items-center">
+                <input type="radio" name="format" value="mp4" class="mr-2" aria-label="MP4"> MP4
+            </label>
+            <label class="flex items-center">
+                <input type="radio" name="format" value="webm" class="mr-2" aria-label="WebM"> WebM
+            </label>
+        </div>
+        <div class="mt-3">
+            <label class="block mb-1" for="shortcut">Keyboard Shortcut</label>
+            <input id="shortcut" type="text" class="text-black w-full px-1" placeholder="Ctrl+L">
+        </div>
+        <div class="mt-3">
+            <label class="block mb-1" for="folder">Save Folder</label>
+            <input id="folder" type="text" class="text-black w-full px-1" placeholder="videos/">
+        </div>
+
         <button type="submit" class="bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded animate-btn w-full">
             Save
             <span class="spinner inline-block animate-spin h-4 w-4 border-2 border-t-transparent rounded-full"></span>
         </button>
     </form>
+
     <div id="history" class="mt-4">
         <h3 class="text-sm font-bold mb-1">Download History</h3>
         <ul id="historyList" class="text-xs"></ul>
+
+    <div id="historyPanel" class="mt-4">
+        <h4 class="font-semibold mb-1">Download History</h4>
+        <ul id="historyList" class="text-xs space-y-1 max-h-40 overflow-y-auto"></ul>
+        <button id="clearHistory" class="mt-2 bg-gray-600 hover:bg-gray-700 text-white px-2 py-1 rounded text-xs">Clear History</button>
+
     </div>
     <script src="popup.js"></script>
 </body>

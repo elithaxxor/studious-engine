@@ -3,6 +3,7 @@
   "name": "Video Downloader",
   "version": "1.0",
   "description": "Download videos by hovering and pressing Ctrl+L",
+
   "permissions": [
     "activeTab",
     "downloads"
@@ -12,11 +13,28 @@
       "matches": ["<all_urls>"],
       "js": ["content.js"]
     }
+=======
+  "permissions": ["activeTab", "downloads"],
+
+  "content_scripts": [{"matches": ["<all_urls>"], "js": ["content.js"]}],
+  "background": {"scripts": ["background.js"], "persistent": false},
+  "author": "Example",
+  "browser_action": {"default_popup": "index.html"}
+}
+
+
+  "content_scripts": [
+    {"matches": ["<all_urls>"], "js": ["content.js"]}
+
   ],
   "background": {
     "scripts": ["background.js"],
     "persistent": false
   },
+
   "minimum_edge_version": "109.0"
+
+  "minimum_edge_version": "80.0"
+
 }
 
