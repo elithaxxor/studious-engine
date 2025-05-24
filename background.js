@@ -26,6 +26,7 @@ async function mergeSegmentsWithFFmpeg(segments, outputName, protocol) {
 
 // Listen for messages from content scripts
 chrome.runtime.onMessage.addListener((message) => {
+
     if (message.action === 'downloadSegments') {
         chrome.storage.sync.get(['saveLocations', 'autoMerge'], (prefs) => {
             const site = message.site || 'generic';
@@ -65,4 +66,30 @@ chrome.runtime.onMessage.addListener((message) => {
         chrome.storage.sync.set({ autoMerge: message.value });
     }
     // ... existing handlers ...
+
+  if (message.action === 'downloadSegments') {
+      message.segments.forEach((segment, index) => {
+          chrome.downloads.download({
+              url: segment,
+              filename: `video_segment_${index}.${message.protocol === 'HLS' ? 'ts' : 'm4s'}`,
+              saveAs: false
+          });
+      });
+      chrome.notifications.create({
+          type: 'basic',
+          iconUrl: 'icon.png',
+          title: 'Video Downloader',
+          message: `Downloading ${message.protocol} segments. After all downloads complete, merge them with:\nffmpeg -i "playlist.m3u8" -c copy output.mp4\nOr use the original .m3u8 URL.`
+      });
+  }
+  if (message.action === 'notify' && message.message) {
+      chrome.notifications.create({
+          type: 'basic',
+          iconUrl: 'icon.png',
+          title: 'Video Downloader',
+          message: message.message
+      });
+  }
+  // ... existing handlers ...
+
 });
