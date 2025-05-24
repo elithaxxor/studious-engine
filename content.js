@@ -1,4 +1,41 @@
 // Add to existing content.js (extractVideoURLs)
+let currentVideoURLs = [];
+let streamingInfo = null;
+let preferredQuality = '720p';
+let preferredFormat = 'mp4';
+let triggerKey = 'Ctrl+L';
+let downloadFolder = '';
+
+chrome.storage.sync.get(['preferredQuality','preferredFormat','triggerKey','downloadFolder'], (res) => {
+  if (res.preferredQuality) preferredQuality = res.preferredQuality;
+  if (res.preferredFormat) preferredFormat = res.preferredFormat;
+  if (res.triggerKey) triggerKey = res.triggerKey;
+  if (res.downloadFolder) downloadFolder = res.downloadFolder;
+});
+
+let hoveredVideo = null;
+document.addEventListener('mouseenter', (e) => {
+  if (e.target.tagName === 'VIDEO') hoveredVideo = e.target;
+}, true);
+document.addEventListener('mouseleave', (e) => {
+  if (e.target === hoveredVideo) hoveredVideo = null;
+}, true);
+
+document.addEventListener('keydown', async (e) => {
+  if (matchesShortcut(e) && hoveredVideo) {
+    currentVideoURLs = [];
+    await extractVideoURLs();
+    const chosen = selectPreferred(currentVideoURLs);
+    if (!chosen) {
+      chrome.runtime.sendMessage({action:'notify',message:'No downloadable video found'});
+      return;
+    }
+    const filename = buildFilename(chosen);
+    chrome.runtime.sendMessage({action:'queueDownload', url: chosen.url, filename});
+    addToHistory(chosen.url, filename);
+  }
+});
+
 async function extractVideoURLs() {
   // ... existing code ...
   if (streamingInfo) {
@@ -56,10 +93,12 @@ else if (window.location.hostname.includes('youtube.com')) {
             const config = JSON.parse(match[1]);
             const streams = config.streamingData?.formats || [];
             streams.forEach(stream => {
-              if (stream.mimeType && stream.mimeType.includes('video/mp4') && stream.url) {
+              if (stream.mimeType && stream.url) {
+                const fmt = stream.mimeType.includes('webm') ? 'webm' : 'mp4';
                 currentVideoURLs.push({
                   quality: stream.qualityLabel,
-                  url: stream.url
+                  url: stream.url,
+                  format: fmt
                 });
               }
             });
@@ -83,10 +122,12 @@ else if (window.location.hostname.includes('dailymotion.com')) {
                   const qualities = config.metadata?.qualities || {};
                   Object.keys(qualities).forEach(quality => {
                       qualities[quality].forEach(source => {
-                          if (source.type === 'video/mp4' && source.url) {
+                          if (source.type && source.url) {
+                              const fmt = source.type.includes('webm') ? 'webm' : 'mp4';
                               currentVideoURLs.push({
                                   quality: quality + 'p',
-                                  url: source.url
+                                  url: source.url,
+                                  format: fmt
                               });
                           }
                       });
@@ -97,6 +138,42 @@ else if (window.location.hostname.includes('dailymotion.com')) {
           }
       }
   }
+}
+// Pornhub extraction
+else if (window.location.hostname.includes('pornhub.com')) {
+  try {
+    const scripts = document.getElementsByTagName('script');
+    for (let script of scripts) {
+      if (script.textContent.includes('mediaDefinitions') || script.textContent.includes('flashvars')) {
+        const mediaMatch = script.textContent.match(/mediaDefinitions\s*[:=]\s*(\[.*?\])/s);
+        const flashMatch = script.textContent.match(/flashvars[^=]*=\s*(\{.*?\});/s);
+        let defs = null;
+        if (mediaMatch) {
+          try { defs = JSON.parse(mediaMatch[1].replace(/'/g, '"')); } catch {}
+        } else if (flashMatch) {
+          try { const obj = JSON.parse(flashMatch[1]); defs = obj.mediaDefinitions; } catch {}
+        }
+        if (defs && Array.isArray(defs)) {
+          defs.forEach(d => {
+            const url = d.videoUrl || d.url;
+            if (url && (url.includes('.mp4') || url.includes('.m3u8'))) {
+              const fmt = url.includes('.m3u8') ? 'hls' : 'mp4';
+              currentVideoURLs.push({ quality: d.quality || 'unknown', url, format: fmt });
+            }
+          });
+        } else {
+          const urlMatches = script.textContent.match(/https?:[^"']+\.(?:mp4|m3u8)[^"']*/g);
+          if (urlMatches) {
+            urlMatches.forEach(u => currentVideoURLs.push({ quality: 'unknown', url: u.replace(/\\/g, ''), format: u.includes('.m3u8') ? 'hls' : 'mp4' }));
+          }
+        }
+        if (currentVideoURLs.length) break;
+      }
+    }
+    if (currentVideoURLs.length === 0) {
+      console.warn('Pornhub: no downloadable URLs found.');
+    }
+  } catch (e) { console.error('Pornhub extraction error:', e); }
 }
 // 4. Twitch HLS extraction (basic)
 else if (window.location.hostname.includes('twitch.tv')) {
@@ -127,11 +204,13 @@ else {
     const videos = document.querySelectorAll('video');
     videos.forEach(video => {
       if (video.src) {
-        currentVideoURLs.push({ quality: 'unknown', url: video.src });
+        const fmt = video.src.includes('.webm') ? 'webm' : 'mp4';
+        currentVideoURLs.push({ quality: 'unknown', url: video.src, format: fmt });
       } else if (video.querySelector('source')) {
         const source = video.querySelector('source');
         if (source && source.src) {
-          currentVideoURLs.push({ quality: 'unknown', url: source.src });
+          const fmt = source.src.includes('.webm') ? 'webm' : 'mp4';
+          currentVideoURLs.push({ quality: 'unknown', url: source.src, format: fmt });
         }
       }
     });
@@ -141,10 +220,8 @@ else {
   } catch (e) { console.error('Generic <video> extraction error:', e); }
 }
 
-  // Placeholder: Twitch uses HLS, integrate with streaming support
-  streamingInfo = { protocol: 'HLS', url: 'TBD' }; // Requires further research
 }
-}
+
 
 async function fetchHLSSegments(url, retries = 3) {
   for (let attempt = 1; attempt <= retries; attempt++) {
@@ -209,30 +286,34 @@ async function fetchDASHSegments(url) {
   }
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-  const form = document.getElementById('qualityForm');
-  const button = form.querySelector('button');
-  const spinner = button.querySelector('.spinner');
+function matchesShortcut(e) {
+  const parts = triggerKey.split('+');
+  const key = parts.pop().toLowerCase();
+  const mod = parts.join('+').toLowerCase();
+  if (mod === 'ctrl') return e.ctrlKey && e.key.toLowerCase() === key;
+  if (mod === 'alt') return e.altKey && e.key.toLowerCase() === key;
+  if (mod === 'shift') return e.shiftKey && e.key.toLowerCase() === key;
+  if (mod === 'ctrl+shift') return e.ctrlKey && e.shiftKey && e.key.toLowerCase() === key;
+  return false;
+}
 
-  // Load saved quality preference
-  chrome.storage.sync.get(['preferredQuality'], (result) => {
-      const preferredQuality = result.preferredQuality || '720p';
-      document.querySelector(`input[name="quality"][value="${preferredQuality}"]`).checked = true;
-  });
+function selectPreferred(list) {
+  let filtered = list.filter(v => v.format && v.format.toLowerCase().includes(preferredFormat.toLowerCase()));
+  if (preferredQuality) filtered = filtered.filter(v => v.quality === preferredQuality);
+  return filtered[0] || list[0];
+}
 
-  // Save selected quality on form submit
-  form.addEventListener('submit', (event) => {
-      event.preventDefault();
-      button.disabled = true;
-      spinner.style.display = 'inline-block';
-      const selectedQuality = document.querySelector('input[name="quality"]:checked').value;
-      chrome.storage.sync.set({ preferredQuality: selectedQuality }, () => {
-          setTimeout(() => {
-              alert(`Preferred quality set to ${selectedQuality}`);
-              button.disabled = false;
-              spinner.style.display = 'none';
-              window.close();
-          }, 500);
-      });
+function buildFilename(item) {
+  let name = item.url.split('/').pop().split('?')[0];
+  if (!name.includes('.')) name += '.' + (item.format || 'mp4');
+  if (downloadFolder) return downloadFolder.replace(/\/$/, '') + '/' + name;
+  return name;
+}
+
+function addToHistory(url, filename) {
+  chrome.storage.local.get({downloadHistory: []}, data => {
+    const history = data.downloadHistory;
+    history.unshift({url, filename, date: Date.now()});
+    chrome.storage.local.set({downloadHistory: history.slice(0, 50)});
   });
-});
+}
