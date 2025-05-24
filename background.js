@@ -1,34 +1,65 @@
-/* background.js
-Listens for downloadSegments messages and downloads each segment using chrome.downloads.download.
-Notifies the user via chrome.notifications.create.
-No obvious errors in the shown code. */ 
+// background.js
+// Handles downloads sequentially and records history.
 
+const downloadQueue = [];
+let isDownloading = false;
 
-
-// Add to existing background.js
 chrome.runtime.onMessage.addListener((message) => {
+  if (message.action === 'queueDownload' && message.item) {
+    downloadQueue.push(message.item);
+    processQueue();
+  }
   if (message.action === 'downloadSegments') {
-      message.segments.forEach((segment, index) => {
-          chrome.downloads.download({
-              url: segment,
-              filename: `video_segment_${index}.${message.protocol === 'HLS' ? 'ts' : 'm4s'}`,
-              saveAs: false
-          });
+    message.segments.forEach((url, idx) => {
+      downloadQueue.push({
+        url,
+        filename: `segment_${idx}.${message.protocol === 'HLS' ? 'ts' : 'm4s'}`
       });
-      chrome.notifications.create({
-          type: 'basic',
-          iconUrl: 'icon.png',
-          title: 'Video Downloader',
-          message: `Downloading ${message.protocol} segments. After all downloads complete, merge them with:\nffmpeg -i "playlist.m3u8" -c copy output.mp4\nOr use the original .m3u8 URL.`
-      });
+    });
+    processQueue();
+    chrome.notifications.create({
+      type: 'basic',
+      iconUrl: 'icon.png',
+      title: 'Video Downloader',
+      message: `Queued ${message.segments.length} ${message.protocol} segments`
+    });
   }
   if (message.action === 'notify' && message.message) {
-      chrome.notifications.create({
-          type: 'basic',
-          iconUrl: 'icon.png',
-          title: 'Video Downloader',
-          message: message.message
-      });
+    chrome.notifications.create({
+      type: 'basic',
+      iconUrl: 'icon.png',
+      title: 'Video Downloader',
+      message: message.message
+    });
   }
-  // ... existing handlers ...
 });
+
+function processQueue() {
+  if (isDownloading || downloadQueue.length === 0) return;
+  isDownloading = true;
+  const item = downloadQueue.shift();
+  chrome.downloads.download({ url: item.url, filename: item.filename, saveAs: false }, (id) => {
+    if (chrome.runtime.lastError) {
+      chrome.notifications.create({ type: 'basic', iconUrl: 'icon.png', title: 'Download Error', message: chrome.runtime.lastError.message });
+      isDownloading = false;
+      processQueue();
+      return;
+    }
+    chrome.downloads.onChanged.addListener(function listener(delta) {
+      if (delta.id === id && delta.state && delta.state.current === 'complete') {
+        chrome.downloads.onChanged.removeListener(listener);
+        recordHistory(item.url, item.filename);
+        isDownloading = false;
+        processQueue();
+      }
+    });
+  });
+}
+
+function recordHistory(url, filename) {
+  chrome.storage.local.get({ history: [] }, (res) => {
+    res.history.push({ url, filename, time: Date.now() });
+    chrome.storage.local.set({ history: res.history });
+  });
+}
+

@@ -24,11 +24,18 @@
         <label class="flex items-center">
             <input type="radio" name="quality" value="1080p" class="mr-2" aria-label="1080p"> 1080p
         </label>
+        <label class="block mt-3 text-sm">Shortcut
+            <input id="shortcut" type="text" class="w-full text-black p-1 rounded" placeholder="Ctrl+L">
+        </label>
         <button type="submit" class="bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded animate-btn w-full">
             Save
             <span class="spinner inline-block animate-spin h-4 w-4 border-2 border-t-transparent rounded-full"></span>
         </button>
     </form>
+    <div id="history" class="mt-4">
+        <h3 class="text-sm font-bold mb-1">Download History</h3>
+        <ul id="historyList" class="text-xs"></ul>
+    </div>
     <script src="popup.js"></script>
 </body>
 </html>
