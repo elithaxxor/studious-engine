@@ -1,4 +1,7 @@
 // Add to existing content.js (extractVideoURLs)
+let currentVideoURLs = [];
+let streamingInfo = null;
+
 async function extractVideoURLs() {
   // ... existing code ...
   if (streamingInfo) {
@@ -98,6 +101,41 @@ else if (window.location.hostname.includes('dailymotion.com')) {
       }
   }
 }
+// Pornhub extraction
+else if (window.location.hostname.includes('pornhub.com')) {
+  try {
+    const scripts = document.getElementsByTagName('script');
+    for (let script of scripts) {
+      if (script.textContent.includes('mediaDefinitions') || script.textContent.includes('flashvars')) {
+        const mediaMatch = script.textContent.match(/mediaDefinitions\s*[:=]\s*(\[.*?\])/s);
+        const flashMatch = script.textContent.match(/flashvars[^=]*=\s*(\{.*?\});/s);
+        let defs = null;
+        if (mediaMatch) {
+          try { defs = JSON.parse(mediaMatch[1].replace(/'/g, '"')); } catch {}
+        } else if (flashMatch) {
+          try { const obj = JSON.parse(flashMatch[1]); defs = obj.mediaDefinitions; } catch {}
+        }
+        if (defs && Array.isArray(defs)) {
+          defs.forEach(d => {
+            const url = d.videoUrl || d.url;
+            if (url && (url.includes('.mp4') || url.includes('.m3u8'))) {
+              currentVideoURLs.push({ quality: d.quality || 'unknown', url });
+            }
+          });
+        } else {
+          const urlMatches = script.textContent.match(/https?:[^"']+\.(?:mp4|m3u8)[^"']*/g);
+          if (urlMatches) {
+            urlMatches.forEach(u => currentVideoURLs.push({ quality: 'unknown', url: u.replace(/\\/g, '') }));
+          }
+        }
+        if (currentVideoURLs.length) break;
+      }
+    }
+    if (currentVideoURLs.length === 0) {
+      console.warn('Pornhub: no downloadable URLs found.');
+    }
+  } catch (e) { console.error('Pornhub extraction error:', e); }
+}
 // 4. Twitch HLS extraction (basic)
 else if (window.location.hostname.includes('twitch.tv')) {
   try {
@@ -141,10 +179,8 @@ else {
   } catch (e) { console.error('Generic <video> extraction error:', e); }
 }
 
-  // Placeholder: Twitch uses HLS, integrate with streaming support
-  streamingInfo = { protocol: 'HLS', url: 'TBD' }; // Requires further research
 }
-}
+
 
 async function fetchHLSSegments(url, retries = 3) {
   for (let attempt = 1; attempt <= retries; attempt++) {

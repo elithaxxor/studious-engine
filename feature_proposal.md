@@ -1,0 +1,23 @@
+# Future Feature Ideas
+
+1. **Automatic Format Selection**
+   - Detect available video qualities and let users choose preferred formats (MP4, WebM, HLS).
+   - Remember the last selected format per site.
+2. **Batch Download Queue**
+   - Maintain a queue of video URLs and download them one after another to prevent multiple parallel downloads.
+   - Provide pause and resume controls.
+3. **Download History Panel**
+   - Store a list of completed downloads with filenames and timestamps.
+   - Allow re-download or copying the original URL from history.
+4. **Configurable Keyboard Shortcut**
+   - Let users change the trigger key via options, defaulting to Ctrl+L.
+   - Display the active shortcut in the popup.
+5. **Improved Error Reporting**
+   - Surface clear messages in the popup with possible fixes when extraction fails.
+   - Offer a link to a troubleshooting guide.
+
+## Additional Enhancements
+- **FFmpeg Integration** – Optionally merge HLS or DASH segments directly after download using a WebAssembly build of ffmpeg.
+- **Custom Save Locations** – Remember different folders for each site or quality level.
+- **Multi-browser Support** – Ensure compatibility with Firefox and Edge manifests.
+
