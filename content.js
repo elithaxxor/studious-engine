@@ -1,6 +1,7 @@
 // Add to existing content.js (extractVideoURLs)
 let currentVideoURLs = [];
 let streamingInfo = null;
+
 let preferredQuality = '720p';
 let preferredFormat = 'mp4';
 let triggerKey = 'Ctrl+L';
@@ -35,6 +36,7 @@ document.addEventListener('keydown', async (e) => {
     addToHistory(chosen.url, filename);
   }
 });
+
 
 async function extractVideoURLs() {
   // ... existing code ...
@@ -157,14 +159,22 @@ else if (window.location.hostname.includes('pornhub.com')) {
           defs.forEach(d => {
             const url = d.videoUrl || d.url;
             if (url && (url.includes('.mp4') || url.includes('.m3u8'))) {
+
               const fmt = url.includes('.m3u8') ? 'hls' : 'mp4';
               currentVideoURLs.push({ quality: d.quality || 'unknown', url, format: fmt });
+
+              currentVideoURLs.push({ quality: d.quality || 'unknown', url });
+
             }
           });
         } else {
           const urlMatches = script.textContent.match(/https?:[^"']+\.(?:mp4|m3u8)[^"']*/g);
           if (urlMatches) {
+
             urlMatches.forEach(u => currentVideoURLs.push({ quality: 'unknown', url: u.replace(/\\/g, ''), format: u.includes('.m3u8') ? 'hls' : 'mp4' }));
+
+            urlMatches.forEach(u => currentVideoURLs.push({ quality: 'unknown', url: u.replace(/\\/g, '') }));
+
           }
         }
         if (currentVideoURLs.length) break;
@@ -316,4 +326,8 @@ function addToHistory(url, filename) {
     history.unshift({url, filename, date: Date.now()});
     chrome.storage.local.set({downloadHistory: history.slice(0, 50)});
   });
+
 }
+
+});
+
