@@ -26,6 +26,7 @@
 
 
 
+
    - Detect available video qualities and allow the user to choose preferred formats (MP4, WebM).
 2. **Batch Download Queue**
    - Queue multiple video URLs for sequential downloading to avoid overwhelming the browser.
@@ -36,6 +37,8 @@
 5. **Improved Error Reporting**
    - Provide detailed error messages and troubleshooting steps in the popup UI.
 
+
+
 6. **FFmpeg Integration**
    - Use a WebAssembly build of ffmpeg to optionally merge downloaded HLS or DASH segments directly in the browser after download completes.
 7. **Custom Save Locations**
@@ -44,4 +47,5 @@
    - Provide alternate manifests for Firefox and Edge to ensure cross-browser compatibility.
 
 
+Additional possibilities include automatic subtitle fetching and a scheduled download mode to queue content during off-peak hours.
 
