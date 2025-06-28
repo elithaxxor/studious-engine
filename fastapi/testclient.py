@@ -1,4 +1,5 @@
 class TestClient:
+    __test__ = False
     def __init__(self, app):
         self.app = app
 
