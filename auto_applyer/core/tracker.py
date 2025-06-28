@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 import datetime as dt
-from pathlib import Path
-from typing import Optional
 
 from sqlalchemy import Column, Date, Integer, String, create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
