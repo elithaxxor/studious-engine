@@ -58,4 +58,13 @@
 
 Additional possibilities include automatic subtitle fetching and a scheduled download mode to queue content during off-peak hours.
 
+## New Suggestions
+
+9. **Progress Feedback**
+   - Show a progress bar for multi-segment downloads so users know how many parts remain.
+10. **Subtitle Extraction**
+   - Detect and offer subtitle tracks when available and download them alongside the video.
+11. **Settings Export/Import**
+   - Allow users to back up or share their preferences via a simple JSON export and import option.
+
 

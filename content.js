@@ -2,47 +2,6 @@
 let currentVideoURLs = [];
 let streamingInfo = null;
 
-let preferredQuality = '720p';
-let shortcutKey = 'Ctrl+L';
-let hoverVideo = null;
-
-chrome.storage.sync.get(['preferredQuality', 'shortcut'], (res) => {
-  if (res.preferredQuality) preferredQuality = res.preferredQuality;
-  if (res.shortcut) shortcutKey = res.shortcut;
-});
-
-function matchesShortcut(e) {
-  const parts = shortcutKey.split('+');
-  const key = parts.pop();
-  const mods = parts.map(p => p.toLowerCase());
-  if (key.toLowerCase() !== e.key.toLowerCase()) return false;
-  if (mods.includes('ctrl') && !e.ctrlKey) return false;
-  if (mods.includes('alt') && !e.altKey) return false;
-  if (mods.includes('shift') && !e.shiftKey) return false;
-  return true;
-}
-
-function attachVideoListeners(video) {
-  video.addEventListener('mouseenter', () => hoverVideo = video);
-  video.addEventListener('mouseleave', () => { if (hoverVideo === video) hoverVideo = null; });
-}
-
-function initVideoTracking() {
-  document.querySelectorAll('video').forEach(v => attachVideoListeners(v));
-  new MutationObserver((mutations) => {
-    mutations.forEach(m => m.addedNodes.forEach(node => {
-      if (node.tagName === 'VIDEO') attachVideoListeners(node);
-    }));
-  }).observe(document.body, { childList: true, subtree: true });
-  document.addEventListener('keydown', (e) => {
-    if (hoverVideo && matchesShortcut(e)) {
-      e.preventDefault();
-      extractVideoURLs();
-    }
-  });
-}
-
-initVideoTracking();
 
 
 let preferredQuality = '720p';
@@ -391,9 +350,6 @@ function addToHistory(url, filename) {
     history.unshift({url, filename, date: Date.now()});
     chrome.storage.local.set({downloadHistory: history.slice(0, 50)});
   });
-
 }
-
-});
 
 
