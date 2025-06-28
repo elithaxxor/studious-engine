@@ -8,9 +8,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const shortcutInput = document.getElementById('shortcut');
 
   const historyList = document.getElementById('historyList');
-
   const folderInput = document.getElementById('folder');
-  const historyList = document.getElementById('historyList');
   const clearHistory = document.getElementById('clearHistory');
 
 
@@ -30,16 +28,6 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   loadHistory(historyList);
-
-  form.addEventListener('submit', (e) => {
-    e.preventDefault();
-    spinner.style.display = 'inline-block';
-    const selectedQuality = document.querySelector('input[name="quality"]:checked').value;
-    const shortcut = shortcutInput.value || 'Ctrl+L';
-    chrome.storage.sync.set({ preferredQuality: selectedQuality, shortcut }, () => {
-      spinner.style.display = 'none';
-      showNotification('Settings saved');
-      loadHistory(historyList);
 
   // Load saved settings
   chrome.storage.sync.get(['preferredQuality','preferredFormat','triggerKey','downloadFolder'], (res) => {
