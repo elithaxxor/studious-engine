@@ -74,3 +74,4 @@ Ties everything together, ensuring the scripts run in the correct contexts.
 This extension provides a simple, effective way to download videos from any webpage, with cross-browser compatibility and support for dynamic content. Enjoy downloading your videos!
 \n### Recent Features\n- Quality preference and customizable shortcut\n- Batch download queue with history\n- Firefox and Edge manifests for multi-browser support\n- Placeholder ffmpeg.wasm worker for future merging\n
 
+\n## Auto Applyer\nSee auto_applyer/README.md for instructions on the automated job application CLI and API.
