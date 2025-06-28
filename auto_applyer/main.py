@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 import typer
-from pathlib import Path
-
 from .core.tracker import Tracker
 from .providers.linkedin import LinkedInProvider
 from .providers.indeed import IndeedProvider
